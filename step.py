@@ -139,3 +139,15 @@ class SQLilloEngine(object):
 
     def get_players_pos(self):
         return self.players_pos
+
+    def get_player_pos(self, player_idx):
+        return list(map(lambda x: x["pos"], self.players_pos[player_idx]["workers"]))
+
+
+def format_actions_single_player(player_id, action_list):
+    return dict({"id":player_id , 
+        "workers": [{"id":i, "act":a} for i, a in enumerate(action_list)]})
+
+
+def format_actions(actions):
+    return list(map(lambda x: format_actions_single_player(*x), enumerate(actions)))
