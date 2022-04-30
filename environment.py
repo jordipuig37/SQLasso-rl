@@ -31,8 +31,9 @@ class EpisodeStats():
         dictionary format. It returns the information that will be saved,
         thus, saving all the episode data is not needed.
         """
+        final_reward = max(self.reward[-11:])  # ugly sorry
         dictionary = {
-            "reward": self.reward,
+            "reward": final_reward,
             # "loss": self.episode_loss,
         }
         return dictionary
@@ -77,7 +78,7 @@ class SQLilloLearningEnv():
 
             if (n_episode+1) % self.conf.test_freq == 0:
                 # if we perform a test episode
-                test_episode = self.run_episode(agents, train_mode=False)
+                test_episode = self.run_episode(agent, train_mode=False)
                 self.test_stats.append(test_episode.get_data())
                 if (n_episode+1) % self.conf.show_results == 0:
                     print(f"Mean Test Reward of {test_episode.final_reward.sum()/self.conf.bs:.3f} at episode {n_episode+1}")

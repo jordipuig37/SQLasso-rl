@@ -26,19 +26,23 @@ class AgentNet(nn.Module):
     def __init__(self, conf):
         super(AgentNet, self).__init__()
         self.conf = conf
+        # input is size (1, 40, 40)
         self.conv = nn.Sequential(
-            nn.Conv2d(),
-            nn.MaxPool2d(),
-            nn.Linear(),
-            nn.Conv2d()
-
+            nn.Conv2d(1, 16, 5, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # (16, 20, 20)
+            nn.Conv2d(16, 16, 5, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # (16, 10, 10)
+            nn.Conv2d(16, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # (16, 5, 5)
+            nn.Flatten()
         )
-        # self.id_embedder = nn.Embedding(conf.n_players, conf.emb_dim)
-
-        self.rnn = nn.RNN(conf.emb_dim, conf.rnn_size, num_layers=conf.rnn_layers, batch_first=True)
 
         self.action = nn.Sequential(
-            nn.Linear(conf.rnn_size, conf.n_actions)
+            nn.Linear(16*5*5, conf.n_actions),
+            nn.Softmax()
         )
 
 
@@ -46,8 +50,8 @@ class AgentNet(nn.Module):
     def forward(self, board, agent_pos, hidden=None):
         features = self.conv(board)
         features = torch.cat(features, agent_pos)  # TODO: revisar les dimensions de concatenació
-        midstate = self.rnn(features, hidden)
-        output = self.action(midstate)
+
+        output = self.action(features)
 
         return output
 
@@ -56,9 +60,8 @@ class PlayerSQLillo():
     """This is the class definition of the agent that will interact with the
     environment.
     """
-    def __init__(self, idx, conf, model=None, target=None):
+    def __init__(self, conf, model=None, target=None):
         self.conf = conf
-        self.idx = idx
         self.eps = conf.eps
         self.device = conf.device
         if model is None:
