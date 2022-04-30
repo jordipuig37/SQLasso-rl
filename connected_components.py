@@ -20,8 +20,6 @@ def BFS(x, y, i, j, grid, visited, counts):
     """
     BFS to find all cells in connection with key = grid[i][j].
     """
-    # global counts
-
     # terminating case for BFS
     if x != y:
         return
@@ -42,16 +40,6 @@ def BFS(x, y, i, j, grid, visited, counts):
             BFS(x, y, i + y_move[u], j + x_move[u], grid, visited, counts)
 
 
-def reset_visited(visited):
-    """
-    Called every time before a BFS so that visited array is reset to zero.
-    """
-    grid_size = len(visited)
-    for i in range(grid_size):
-        for j in range(grid_size):
-            visited[i][j] = 0
-
-
 def get_connected_components(grid):
     """
     Computes largest connected component for each player.
@@ -64,7 +52,6 @@ def get_connected_components(grid):
     for i in range(grid_size):
         for j in range(grid_size):
             if grid[i][j] != 0:  # cell is not empty
-                reset_visited(visited)
                 counts[grid[i][j]] = 0
 
                 # checking cell to the right
@@ -75,7 +62,6 @@ def get_connected_components(grid):
                 if counts[grid[i][j]] >= max_size[grid[i][j]]:
                     max_size[grid[i][j]] = counts[grid[i][j]]
 
-                reset_visited(visited)
                 counts[grid[i][j]] = 0
 
                 # checking cell downwards
