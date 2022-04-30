@@ -33,20 +33,20 @@ class AgentNet(nn.Module):
             nn.Conv2d()
 
         )
-        self.id_embedder = nn.Embedding(conf.n_players, conf.emb_dim)
+        # self.id_embedder = nn.Embedding(conf.n_players, conf.emb_dim)
 
         self.rnn = nn.RNN(conf.emb_dim, conf.rnn_size, num_layers=conf.rnn_layers, batch_first=True)
 
         self.action = nn.Sequential(
-            nn.Linear(conf.rnn_size, conf.action_space)
+            nn.Linear(conf.rnn_size, conf.n_actions)
         )
 
 
 
-    def forward(self, board, agent_id, agent_pos, hidden=None):
+    def forward(self, board, agent_pos, hidden=None):
         features = self.conv(board)
-        agent_id_emb = self.id_embedder(agent_id)
-        midstate = self.rnn(..., hidden)
+        features = torch.cat(features, agent_pos)  # TODO: revisar les dimensions de concatenació
+        midstate = self.rnn(features, hidden)
         output = self.action(midstate)
 
         return output
@@ -123,15 +123,15 @@ class PlayerSQLillo():
         """
         # compute the loss for each element of the batch
         total_loss = torch.zeros(self.conf.bs, device=self.device)
-        for agent_idx in range(self.conf.n_players):
-            for step in range(self.conf.steps):
+        for worker_idx in range(self.conf.n_workers):
+            for step in range(self.conf.n_ticks):
                 # L(.) = (r + gamma* max(Q_t(s+1, a+1)) - Q(s, a))**2
-                r = episode.total_reward[step] 
-                qsa = episode.step_records[step][agent_idx].action_value  # the q value for the action selected
+                r = episode.reward[step]
+                qsa = episode.step_records[step][worker_idx].action_value  # the q value for the action selected
                 if step == self.conf.steps-1:  # if we are at the last step
                     td_action = r - qsa
                 else:
-                    q_target = episode.step_records[step+1][agent_idx].Qt[:,self.action_range]
+                    q_target = episode.step_records[step+1][worker_idx].Qt
                     td_action = r + self.conf.gamma * q_target.max(dim=1)[0] - qsa
 
                 total_loss = total_loss + (td_action**2)  # accumulate loss
@@ -141,14 +141,18 @@ class PlayerSQLillo():
         return loss
 
 
-    def learn_from_episode(self, episode_record):
+    def learn_from_episode(self, episode_record, n_episode):
         """This function computes the loss for a batch of epiosodes in 
         episode_record and actualizes the agent model wheights with it.
         """
         self.optimizer.zero_grad()
         loss = self.episode_loss(episode_record)
-        loss.backward(retain_graph=not self.conf.model_know_share)  # retain graph because we don't share parameters
+        loss.backward(retain_graph=False)
         clip_grad_norm_(parameters=self.model.parameters(), max_norm=10)
         self.optimizer.step()
+
+        if n_episode % self.conf.step_target == 0 and n_episode > 0:
+            self.actualize_target_network()
+
 
         return loss.item()
