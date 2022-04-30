@@ -1,31 +1,28 @@
-import numpy as np
-import pandas as pd
-import torch
-import logging
-
 from collections import defaultdict
-from utils import DotDic
+
+import numpy as np
+import torch
+
 from connected_components import get_connected_components
 from step import SQLilloEngine as Board
 from step import format_actions
+from utils import DotDic
 
 
 class EpisodeStats():
     """This class represents the saved information for a batch of episodes.
     It is used to manage episode data.
     """
+
     def __init__(self, conf):
         self.reward = list()
         self.step_records = defaultdict(lambda: defaultdict(lambda: DotDic({})))
 
-
     def record_worker_step(self, t, worker, step_dic):
         self.step_records[t][worker] = DotDic(step_dic)
 
-
     def record_reward(self, step_reward):
         self.reward.append(step_reward)
-
 
     def get_data(self):
         """This function returns all the information of the episode in a
@@ -52,19 +49,14 @@ class SQLilloLearningEnv():
     """This class represents the environment in which the experiments will take
     place. It records the train and test stats.
     """
-    def __init__(self, conf, seed=1234):
-        # logs
-        logging.basicConfig(level=logging.INFO)
-        # self.logger = logging.getLogger(__name__)
-        # self.logger.setLevel(logging.INFO)
 
+    def __init__(self, conf, seed=1234):
         np.random.seed(seed)
         self.player_id = 1
         self.conf = conf
         self.device = conf.device
         self.stats = []
         self.test_stats = []
-
 
     def train(self, agent):
         """This function trains the given agents running the number of episodes
@@ -76,7 +68,6 @@ class SQLilloLearningEnv():
         # for each epoch
         for n_episode in range(self.conf.n_episodes):
             print("DEBUG n_episode: ", n_episode)
-            # logging.INFO("n_episode: ", str(n_episode))
             episode_stats = self.run_episode(agent)
             ep_loss = agent.learn_from_episode(episode_stats, n_episode)
 
@@ -84,22 +75,20 @@ class SQLilloLearningEnv():
 
             self.stats.append(episode_stats.get_data())
             print("DEBUG get_data: ", episode_stats.get_data())
-            # logging.INFO("get_data: ", str(episode_stats.get_data()["reward"]))
 
-            if (n_episode+1) % self.conf.test_freq == 0:
+            if (n_episode + 1) % self.conf.test_freq == 0:
                 # if we perform a test episode
                 test_episode = self.run_episode(agent, train_mode=False)
                 self.test_stats.append(test_episode.get_data())
-                if (n_episode+1) % self.conf.show_results == 0:
-                    print(f"Mean Test Reward of {test_episode.final_reward.sum()/self.conf.bs:.3f} at episode {n_episode+1}")
-
+                if (n_episode + 1) % self.conf.show_results == 0:
+                    print(
+                        f"Mean Test Reward of {test_episode.final_reward.sum() / self.conf.bs:.3f} at episode {n_episode + 1}")
 
     def reset(self, seed=1234):
         """This function resets the stats and the seed."""
         self.stats = []
         self.test_stats = []
         np.random.seed(seed)
-
 
     def get_reward(self, board, tick):
         """This function returns the reward of corresponding to the action
@@ -111,10 +100,10 @@ class SQLilloLearningEnv():
         else:
             connected_comps = get_connected_components(board)
             our_cc = connected_comps[1]
-            other_cc = max(connected_comps[2], connected_comps[3], connected_comps[4])  # very ugly
+            other_cc = max(connected_comps[2], connected_comps[3], connected_comps[4])  #  very ugly
 
-            return self.conf.alpha * our_cc - self.conf.beta * other_cc
-
+            # return self.conf.alpha * our_cc - self.conf.beta * other_cc
+            return self.conf.alpha * our_cc
 
     def run_episode(self, agent, train_mode=True):
         """This function runs a single batch of episodes and records the

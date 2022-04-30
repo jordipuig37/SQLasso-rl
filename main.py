@@ -1,15 +1,15 @@
-import pandas as pd
-import json
 import argparse
 import copy
+import json
 
+import pandas as pd
 import torch
-from utils import DotDic
 
-from agent import PlayerSQLillo
 from agent import AgentNet
+from agent import PlayerSQLillo
 from agent import init_xavi_uniform
 from environment import SQLilloLearningEnv
+from utils import DotDic
 
 
 def create_agent(conf):
@@ -50,7 +50,7 @@ def main(args, **kwargs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-conf", "--conf-file", type=str,
-        help="The file in which the configuration for our experimets is stored.")
+                        help="The file in which the configuration for our experimets is stored.")
     parser.add_argument("-v", "--verbose", nargs='?', const=True, default=False)
     args = parser.parse_args()
 

@@ -1,7 +1,4 @@
-import numpy as np
 import numpy.random as random
-import copy
-import pickle
 
 import torch
 import torch.nn as nn
@@ -11,18 +8,19 @@ from torch.nn.utils import clip_grad_norm_
 
 def weight_reset(m):
     if isinstance(m, nn.Embedding) or isinstance(m, nn.RNN) or \
-        isinstance(m, nn.Linear) or isinstance(m, nn.LSTM):
+            isinstance(m, nn.Linear) or isinstance(m, nn.LSTM):
         m.reset_parameters()
 
 
 def init_xavi_uniform(m):
     if isinstance(m, nn.Embedding) or \
-        isinstance(m, nn.Linear) or isinstance(m, nn.RNN):
-            torch.nn.init.xavier_uniform_(m.weight)
+            isinstance(m, nn.Linear) or isinstance(m, nn.RNN):
+        torch.nn.init.xavier_uniform_(m.weight)
 
 
 class AgentNet(nn.Module):
     """This class represents the Network architecture of the agents."""
+
     def __init__(self, conf):
         super(AgentNet, self).__init__()
         self.conf = conf
@@ -41,13 +39,10 @@ class AgentNet(nn.Module):
         )
 
         self.action = nn.Sequential(
-            nn.Linear(16*5*5+2, conf.n_actions),
-            nn.Softmax()
+            nn.Linear(16 * 5 * 5 + 2, conf.n_actions)
         )
 
-
-
-    def forward(self, board, agent_pos, hidden=None):
+    def forward(self, board, agent_pos):
         features = self.conv(board)
         features = torch.cat((features, agent_pos), dim=1)  # TODO: revisar les dimensions de concatenació
 
@@ -60,6 +55,7 @@ class PlayerSQLillo():
     """This is the class definition of the agent that will interact with the
     environment.
     """
+
     def __init__(self, conf, model=None, target=None):
         self.conf = conf
         self.eps = conf.eps
@@ -75,34 +71,27 @@ class PlayerSQLillo():
             self.target = target.to(conf.device)
 
         self.optimizer = optim.RMSprop(self.model.parameters(),
-            lr=conf.learningrate,
-            momentum=conf.momentum)
-
+                                       lr=conf.learningrate,
+                                       momentum=conf.momentum)
 
         self.action_range = range(0, conf.n_actions)
-
 
     def reset(self):
         # reset the network
         self.model.apply(weight_reset)
         self.target.apply(weight_reset)
 
-
     def get_model_parameters(self):
         return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-
 
     def actualize_target_network(self):
         self.target.load_state_dict(self.model.state_dict())
 
-
     def _random_choice(self, n):
         return torch.randint(0, high=n, size=(1,))
 
-
     def _eps_flip(self, eps):
         return random.random() < eps
-
 
     def select_action(self, Q, eps=0, train_mode=True):
         """This function selects (following a epsilon greedy policy over Q)
@@ -112,13 +101,12 @@ class PlayerSQLillo():
         should_select_random_a = train_mode and self._eps_flip(self.eps)
         if should_select_random_a:
             action = self._random_choice(self.conf.n_actions).to(self.device)
-            action_value = torch.take(Q[:,self.action_range], action)
-        
+            action_value = torch.take(Q[:, self.action_range], action)
+
         else:
-            action_value, action    = torch.max(Q[:,self.action_range], dim=1)
+            action_value, action = torch.max(Q[:, self.action_range], dim=1)
 
         return action.long(), action_value
-
 
     def episode_loss(self, episode):
         """This function returns a loss that can be backpropageted through the
@@ -130,19 +118,18 @@ class PlayerSQLillo():
             for step in range(self.conf.n_ticks):
                 # L(.) = (r + gamma* max(Q_t(s+1, a+1)) - Q(s, a))**2
                 r = episode.reward[step]
-                qsa = episode.step_records[step][worker_idx].action_value  # the q value for the action selected
-                if step == self.conf.n_ticks-1:  # if we are at the last step
+                qsa = episode.step_records[step][worker_idx].action_value  #  the q value for the action selected
+                if step == self.conf.n_ticks - 1:  # if we are at the last step
                     td_action = r - qsa
                 else:
-                    q_target = episode.step_records[step+1][worker_idx].Qt
+                    q_target = episode.step_records[step + 1][worker_idx].Qt
                     td_action = r + self.conf.gamma * q_target.max(dim=1)[0] - qsa
 
-                total_loss = total_loss + (td_action**2)  # accumulate loss
+                total_loss = total_loss + (td_action ** 2)  # accumulate loss
 
         loss = total_loss.sum()
-        loss = loss/float((self.conf.bs * self.conf.n_players))
+        loss = loss / float((self.conf.bs * self.conf.n_players))
         return loss
-
 
     def learn_from_episode(self, episode_record, n_episode):
         """This function computes the loss for a batch of epiosodes in 
@@ -156,6 +143,5 @@ class PlayerSQLillo():
 
         if n_episode % self.conf.step_target == 0 and n_episode > 0:
             self.actualize_target_network()
-
 
         return loss.item()
