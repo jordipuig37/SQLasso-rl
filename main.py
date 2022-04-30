@@ -47,8 +47,6 @@ def main(args, **kwargs):
     train_results = make_trial(base_conf, False)
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-conf", "--conf-file", type=str,

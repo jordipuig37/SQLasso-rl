@@ -41,7 +41,7 @@ class AgentNet(nn.Module):
         )
 
         self.action = nn.Sequential(
-            nn.Linear(16*5*5, conf.n_actions),
+            nn.Linear(16*5*5+2, conf.n_actions),
             nn.Softmax()
         )
 
@@ -49,7 +49,7 @@ class AgentNet(nn.Module):
 
     def forward(self, board, agent_pos, hidden=None):
         features = self.conv(board)
-        features = torch.cat(features, agent_pos)  # TODO: revisar les dimensions de concatenació
+        features = torch.cat((features, agent_pos), dim=1)  # TODO: revisar les dimensions de concatenació
 
         output = self.action(features)
 
@@ -97,7 +97,7 @@ class PlayerSQLillo():
 
 
     def _random_choice(self, n):
-        return torch.randint(0,high=n, size=(self.conf.bs,))
+        return torch.randint(0, high=n, size=(1,))
 
 
     def _eps_flip(self, eps):
@@ -131,7 +131,7 @@ class PlayerSQLillo():
                 # L(.) = (r + gamma* max(Q_t(s+1, a+1)) - Q(s, a))**2
                 r = episode.reward[step]
                 qsa = episode.step_records[step][worker_idx].action_value  # the q value for the action selected
-                if step == self.conf.steps-1:  # if we are at the last step
+                if step == self.conf.n_ticks-1:  # if we are at the last step
                     td_action = r - qsa
                 else:
                     q_target = episode.step_records[step+1][worker_idx].Qt

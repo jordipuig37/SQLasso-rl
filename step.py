@@ -128,7 +128,7 @@ class SQLilloEngine(object):
         self.priori_acts = []
         for _player in actions:
             for _worker in _player['workers']:
-                self.set_action(act=_worker['action'], worker=_worker['id'], 
+                self.set_action(act=_worker['act'], worker=_worker['id'],
                                 player=_player['id'])
         self.check_actions()
         self.execute_actions()

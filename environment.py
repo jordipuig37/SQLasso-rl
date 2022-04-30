@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import logging
 
 from collections import defaultdict
 from utils import DotDic
@@ -51,7 +52,12 @@ class SQLilloLearningEnv():
     """This class represents the environment in which the experiments will take
     place. It records the train and test stats.
     """
-    def __init__(self, conf, seed=1234): 
+    def __init__(self, conf, seed=1234):
+        # logs
+        logging.basicConfig(level=logging.INFO)
+        # self.logger = logging.getLogger(__name__)
+        # self.logger.setLevel(logging.INFO)
+
         np.random.seed(seed)
         self.player_id = 1
         self.conf = conf
@@ -69,12 +75,16 @@ class SQLilloLearningEnv():
         episode_stats = None
         # for each epoch
         for n_episode in range(self.conf.n_episodes):
+            print("DEBUG n_episode: ", n_episode)
+            # logging.INFO("n_episode: ", str(n_episode))
             episode_stats = self.run_episode(agent)
             ep_loss = agent.learn_from_episode(episode_stats, n_episode)
 
             episode_stats.episode_loss = ep_loss
 
             self.stats.append(episode_stats.get_data())
+            print("DEBUG get_data: ", episode_stats.get_data())
+            # logging.INFO("get_data: ", str(episode_stats.get_data()["reward"]))
 
             if (n_episode+1) % self.conf.test_freq == 0:
                 # if we perform a test episode
@@ -112,24 +122,21 @@ class SQLilloLearningEnv():
         """
         episode_stats = EpisodeStats(self.conf)
         game_board = Board()
-        hidden_temp_dic = dict({i: None for i in range(self.conf.n_players)})
         for tick in range(self.conf.n_ticks):
             actions = list()
             workers = game_board.get_player_pos(self.player_id)
             for worker_idx, worker_pos_dic in enumerate(workers):
                 agent_inputs = {
-                    'board': torch.tensor(game_board.get_board()),
-                    'agent_pos': torch.tensor(list(worker_pos_dic.values())).squeeze(0),
-                    'hidden': hidden_temp_dic[worker_idx],  # is already on device
+                    'board': torch.tensor(game_board.get_board()).float().unsqueeze(0).unsqueeze(0),
+                    'agent_pos': torch.tensor(list(worker_pos_dic.values())).float().unsqueeze(0),
                 }
 
-                Q, hidden = agent.model(**agent_inputs)
-                Qt, _    = agent.target(**agent_inputs)
-                action, action_value = agent.select_action_and_comm(Q, train_mode)
+                Q = agent.model(**agent_inputs)
+                Qt = agent.target(**agent_inputs)
+                action, action_value = agent.select_action(Q, train_mode)
 
                 # save worker decision
-                actions.append(action)
-                hidden_temp_dic[worker_idx] = hidden
+                actions.append(action.item())
 
                 worker_step_dic = {  # TODO: see if we are missing something to record
                     "Qt": Qt,
