@@ -1,27 +1,29 @@
 import numpy as np
-import numpy.random as random
 import pandas as pd
-from collections import defaultdict
-from copy import deepcopy as dcopy
-
-from utils import DotDic
 import torch
+
+from collections import defaultdict
+from utils import DotDic
+from connected_components import get_connected_components
+from step import SQLilloEngine as Board
+from step import format_actions
 
 
 class EpisodeStats():
     """This class represents the saved information for a batch of episodes.
     It is used to manage episode data.
     """
-    def __init__(self, conf, states):
-        pass
+    def __init__(self, conf):
+        self.reward = list()
+        self.step_records = defaultdict(lambda: defaultdict(lambda: DotDic({})))
 
 
-    def record_step(self, t, agent, step_dic):
-        pass
+    def record_worker_step(self, t, worker, step_dic):
+        self.step_records[t][worker] = DotDic(step_dic)
 
 
-    def record_input(self, t, agent, agent_input):
-        pass
+    def record_reward(self, step_reward):
+        self.reward.append(step_reward)
 
 
     def get_data(self):
@@ -29,14 +31,19 @@ class EpisodeStats():
         dictionary format. It returns the information that will be saved,
         thus, saving all the episode data is not needed.
         """
-        return None
         dictionary = {
-            "rewards": self.final_reward.sum().item(),
-            "norm_rewards": self.final_reward.sum().item() / self.conf.bs,
-            "loss": self.episode_loss,
-            "eps": self.eps
+            "reward": self.reward,
+            # "loss": self.episode_loss,
         }
         return dictionary
+
+
+def random_player(conf):
+    """This function acts as a player that behaves randomly and independently.
+    It returns the actions taken for each worker in a list.
+    """
+    decision = np.random.randint(conf.n_actions, size=conf.n_workers)
+    return list(decision)
 
 
 class SQLilloLearningEnv():
@@ -45,13 +52,14 @@ class SQLilloLearningEnv():
     """
     def __init__(self, conf, seed=1234): 
         np.random.seed(seed)
+        self.player_id = 1
         self.conf = conf
         self.device = conf.device
         self.stats = []
         self.test_stats = []
-        
 
-    def train(self, agents):
+
+    def train(self, agent):
         """This function trains the given agents running the number of episodes
         defined in self.conf. Also it saves the information for each episode;
         the variables that are saved are indicated in the get_data() function
@@ -60,8 +68,8 @@ class SQLilloLearningEnv():
         episode_stats = None
         # for each epoch
         for n_episode in range(self.conf.n_episodes):
-            episode_stats = self.run_episode(agents)
-            ep_loss = self.make_agents_learn(agents, episode_stats, n_episode)
+            episode_stats = self.run_episode(agent)
+            ep_loss = agent.learn_from_episode(episode_stats, n_episode)
 
             episode_stats.episode_loss = ep_loss
 
@@ -75,28 +83,6 @@ class SQLilloLearningEnv():
                     print(f"Mean Test Reward of {test_episode.final_reward.sum()/self.conf.bs:.3f} at episode {n_episode+1}")
 
 
-    def make_agents_learn(self, agents, episode_stats, n_episode):
-        """This auxiliar function performs the computation of the loss and 
-        backpropagation, and finally the actualization of the network weights.
-        The actualization is made inline and it returns the loss.
-        """
-        ep_loss = 0
-        for idx, agent in enumerate(agents):
-            # do this only once if model_know_share
-            if (not self.conf.model_know_share) or (idx == 0):
-                agent_loss = agent.learn_from_episode(episode_stats)
-                ep_loss += agent_loss
-
-        for idx, agent in enumerate(agents):
-                # do this only once if model_know_share
-                if (not self.conf.model_know_share) or (idx == 0):
-                    agent.optimizer.step()  # this is ugly but it works
-                    if n_episode % self.conf.step_target == 0 and n_episode > 0:
-                        agent.actualize_target_network()
-
-        return ep_loss
-
-    
     def reset(self, seed=1234):
         """This function resets the stats and the seed."""
         self.stats = []
@@ -104,71 +90,66 @@ class SQLilloLearningEnv():
         np.random.seed(seed)
 
 
-    def generate_random_states(self) -> torch.Tensor:
-        # no cal
-        """This function randomly generates the sequence of the states recived
-        by the agents. Returns a tensor of shape (batch_size, agents) that
-        represents the state recieved by each agent at each episode of the
-        batch.
-        """
-        states = torch.tensor(np.random.choice(self.conf.n_states,(self.conf.bs,self.conf.n_agents))).long()
-        return states
-
-
-    def get_reward(self, step, action, ground_truth):
+    def get_reward(self, board, tick):
         """This function returns the reward of corresponding to the action
         vector with respect the ground_truth considering this is happening in
         the step indicated.
         """
-        # TODO: agafar el 40x40 i calcular components connexes
-        pass
+        if tick % 10 != 0:
+            return 0
+        else:
+            connected_comps = get_connected_components(board)
+            our_cc = connected_comps[1]
+            other_cc = max(connected_comps[2], connected_comps[3], connected_comps[4])  # very ugly
+
+            return self.conf.alpha * our_cc - self.conf.beta * other_cc
 
 
-    def run_episode(self, agents, train_mode=True):
+    def run_episode(self, agent, train_mode=True):
         """This function runs a single batch of episodes and records the
         states, communications, outputs of the episode and returns this record.
         """
-        states = self.generate_random_states().to(self.device)
-        episode_stats = EpisodeStats(self.conf, states)
-
-        # communications = torch.zeros(self.conf.nagents, self.conf.steps, dtype=torch.int8)
-        for step in range(self.conf.steps):
-            for idx, agent in enumerate(agents):
-                prev_action = episode_stats.step_records[step-1][idx].action
-                agent_idx = (torch.ones(self.conf.bs, 1) * idx).long()
+        episode_stats = EpisodeStats(self.conf)
+        game_board = Board()
+        hidden_temp_dic = dict({i: None for i in range(self.conf.n_players)})
+        for tick in range(self.conf.n_ticks):
+            actions = list()
+            workers = game_board.get_player_pos(self.player_id)
+            for worker_idx, worker_pos_dic in enumerate(workers):
                 agent_inputs = {
-                    'current_state': states[:,idx].view(-1,1).to(self.device),
-                    'comm_recived': episode_stats.step_records[step-1][(idx+1)%self.conf.n_agents].comm_vector,
-                    'prev_action': prev_action if prev_action is None else prev_action.view(-1,1),
-                    'hidden': episode_stats.step_records[step-1][idx].hidden,  # is already on device
-                    'agent_idx': agent_idx.to(self.device)
+                    'board': torch.tensor(game_board.get_board()),
+                    'agent_pos': torch.tensor(list(worker_pos_dic.values())).squeeze(0),
+                    'hidden': hidden_temp_dic[worker_idx],  # is already on device
                 }
+
                 Q, hidden = agent.model(**agent_inputs)
                 Qt, _    = agent.target(**agent_inputs)
-                
-                #episode_epsilon = 1/max(1,n_episode)
-                (action, action_value), (comm_vector, comm_action, comm_value) =\
-                    agent.select_action_and_comm(Q, train_mode)
+                action, action_value = agent.select_action_and_comm(Q, train_mode)
 
-                reward = self.get_reward(step, action, states[:, idx-1]).to(self.device)
-                
-                step_record = {
-                    "action": action.to(self.device),
-                    "ground_truth": states[:, idx-1],  # the states of the other players
-                    "action_value": action_value.to(self.device),
-                    "comm_vector": comm_vector.to(self.device),
-                    "comm_action": comm_action.to(self.device),
-                    "comm_value": comm_value.to(self.device),
-                    "reward": reward.to(self.device),
-                    "epsilon": agent.eps,
-                    "Q": Q,
-                    "hidden": hidden,
-                    "Qt": Qt
+                # save worker decision
+                actions.append(action)
+                hidden_temp_dic[worker_idx] = hidden
+
+                worker_step_dic = {  # TODO: see if we are missing something to record
+                    "Qt": Qt,
+                    "action_value": action_value,
                 }
+                episode_stats.record_worker_step(tick, worker_idx, worker_step_dic)
+
                 if train_mode:
                     agent.eps = agent.eps * self.conf.eps_decay
 
-                episode_stats.record_step(step, idx, step_record)
-                episode_stats.record_input(step, idx, agent_inputs)
+            # submit actions to board
+            # board.execute_actions(actions, player1)
+            opponent1 = random_player(self.conf)
+            opponent2 = random_player(self.conf)
+            opponent3 = random_player(self.conf)
+
+            actions_to_submit = format_actions([actions, opponent1, opponent2, opponent3])
+            new_board = game_board.move_players(actions_to_submit)
+
+            reward = self.get_reward(new_board, tick)
+
+            episode_stats.record_reward(reward)
 
         return episode_stats
