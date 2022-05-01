@@ -1,0 +1,9 @@
+[package]
+name = "hello"
+version = "0.1.0"
+authors = ["jose"]
+edition = "2021"
+
+[dependencies]
+rhai = "1.6.1"    # assuming 1.6.1 is the latest version
+

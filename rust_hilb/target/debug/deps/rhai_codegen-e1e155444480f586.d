@@ -1,0 +1,10 @@
+/Users/joseperezcano/Desktop/HackUPC/rust/target/debug/deps/librhai_codegen-e1e155444480f586.dylib: /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/lib.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/attrs.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/function.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/module.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/register.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/rhai_module.rs
+
+/Users/joseperezcano/Desktop/HackUPC/rust/target/debug/deps/rhai_codegen-e1e155444480f586.d: /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/lib.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/attrs.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/function.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/module.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/register.rs /Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/rhai_module.rs
+
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/lib.rs:
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/attrs.rs:
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/function.rs:
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/module.rs:
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/register.rs:
+/Users/joseperezcano/.cargo/registry/src/github.com-1ecc6299db9ec823/rhai_codegen-1.4.0/src/rhai_module.rs:
